@@ -182,9 +182,22 @@ export default function ChatPage() {
     }
     bootstrap()
 
-    const socket = io(socketBase, { transports: ['websocket'], auth: { token } })
+    const socket = io(socketBase, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 800,
+      timeout: 20000,
+    })
     socketRef.current = socket
 
+    socket.on('connect', () => {
+      if (selectedChatRef.current) {
+        socket.emit('join_room', { otherUserId: selectedChatRef.current })
+      }
+    })
     socket.on('connect_error', () => toast.error('Socket connection failed'))
     socket.on('message_blocked', ({ error }) => {
       toast.error(error || 'Message blocked')
