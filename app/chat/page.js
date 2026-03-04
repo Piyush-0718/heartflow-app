@@ -41,6 +41,7 @@ export default function ChatPage() {
   const [pendingScrollTargetId, setPendingScrollTargetId] = useState(null)
   const [shouldScrollBottom, setShouldScrollBottom] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
+  const [socketConnected, setSocketConnected] = useState(false)
 
   const emojis = ['ðŸ˜€', 'ðŸ˜‚', 'ðŸ˜', 'ðŸ¥³', 'ðŸ‘', 'ðŸ™', 'â¤ï¸', 'ðŸ”¥', 'ðŸŽ‰', 'ðŸ˜Š']
   const valentineQuickNotes = [
@@ -194,10 +195,12 @@ export default function ChatPage() {
     socketRef.current = socket
 
     socket.on('connect', () => {
+      setSocketConnected(true)
       if (selectedChatRef.current) {
         socket.emit('join_room', { otherUserId: selectedChatRef.current })
       }
     })
+    socket.on('disconnect', () => setSocketConnected(false))
     socket.on('connect_error', () => toast.error('Socket connection failed'))
     socket.on('message_blocked', ({ error }) => {
       toast.error(error || 'Message blocked')
@@ -270,6 +273,47 @@ export default function ChatPage() {
 
     return () => socket.disconnect()
   }, [token, currentUser?.id, socketBase])
+
+  // Fallback sync for mobile/background scenarios when socket is not connected.
+  useEffect(() => {
+    if (!token || !selectedChat || socketConnected) return
+    const intervalId = setInterval(async () => {
+      try {
+        await loadConversations()
+        await loadConversationMessages(selectedChat)
+      } catch (_) {
+        // best-effort sync only
+      }
+    }, 6000)
+    return () => clearInterval(intervalId)
+  }, [token, selectedChat, socketConnected])
+
+  // Refresh chat state when returning to app tab (common on phones).
+  useEffect(() => {
+    if (!token) return
+    const syncNow = async () => {
+      try {
+        await loadConversations()
+        if (selectedChatRef.current) {
+          await loadConversationMessages(selectedChatRef.current)
+        }
+      } catch (_) {
+        // best-effort sync only
+      }
+    }
+
+    const onFocus = () => syncNow()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') syncNow()
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [token])
 
   useEffect(() => {
     if (!selectedChat || !token) return
