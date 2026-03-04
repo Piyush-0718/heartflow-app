@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # HeartConnect - Premium Dating Platform 💕
 
 A modern, secure, and elegant dating platform built with safety, trust, and authentic connections at its core.
