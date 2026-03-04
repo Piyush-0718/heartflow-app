@@ -238,6 +238,18 @@ export default function ChatPage() {
         }
       })
     })
+    socket.on('message_notification', async ({ receiverId, senderId }) => {
+      if (String(receiverId) !== String(currentUser.id)) return
+      try {
+        await loadConversations()
+        if (selectedChatRef.current && String(selectedChatRef.current) === String(senderId)) {
+          await loadConversationMessages(senderId)
+          await markRead(senderId)
+        }
+      } catch (_) {
+        // best-effort sync only
+      }
+    })
     socket.on('receive_message', (incoming) => {
       const otherId = incoming.senderId === currentUser.id ? incoming.receiverId : incoming.senderId
       const wasNearBottom = isNearBottom()

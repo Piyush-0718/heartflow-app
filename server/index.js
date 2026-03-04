@@ -150,6 +150,10 @@ function getRoomId(userA, userB) {
   return [userA.toString(), userB.toString()].sort().join(':');
 }
 
+function getUserRoomId(userId) {
+  return `user:${userId.toString()}`;
+}
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -422,6 +426,7 @@ io.use(async (socket, next) => {
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
+  socket.join(getUserRoomId(socket.userId));
   User.findByIdAndUpdate(socket.userId, {
     isOnline: true,
     lastActive: new Date(),
@@ -496,6 +501,8 @@ io.on('connection', (socket) => {
       }).catch((err) => console.error('Activity update error:', err.message));
 
       const roomId = getRoomId(socket.userId, receiverId);
+      const senderUserRoom = getUserRoomId(socket.userId);
+      const receiverUserRoom = getUserRoomId(receiverId);
       let persistedIsRead = false;
       let persistedReadAt = null;
       try {
@@ -524,12 +531,13 @@ io.on('connection', (socket) => {
         readAt: persistedReadAt,
       };
 
-      // Broadcast message to room
-      io.to(roomId).emit('receive_message', payload);
+      // Deliver to all devices of sender and receiver.
+      io.to(senderUserRoom).emit('receive_message', payload);
+      io.to(receiverUserRoom).emit('receive_message', payload);
       socket.emit('message_saved', payload);
 
-      // Also notify receiver directly if they are connected but not in room
-      io.emit('message_notification', {
+      // Lightweight notification event for non-open chat views.
+      io.to(receiverUserRoom).emit('message_notification', {
         receiverId,
         senderId: socket.userId,
         text: savedMessage.content,
@@ -585,7 +593,8 @@ io.on('connection', (socket) => {
               console.warn('bot read presence check failed:', presenceError.message);
             }
 
-            io.to(roomId).emit('receive_message', botPayload);
+            io.to(getUserRoomId(receiverId)).emit('receive_message', botPayload);
+            io.to(getUserRoomId(socket.userId)).emit('receive_message', botPayload);
           } catch (botError) {
             console.error('bot auto-reply error:', botError.message);
           }
