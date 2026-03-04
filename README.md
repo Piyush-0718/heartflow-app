@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HeartConnect - Premium Dating Platform 💕
 
 A modern, secure, and elegant dating platform built with safety, trust, and authentic connections at its core.
@@ -163,3 +164,6 @@ For issues or questions, contact the development team or refer to the documentat
 ---
 
 Built with ❤️ for authentic connections
+=======
+# heartflow-app
+>>>>>>> f02ba9449386704d95173c51e03f3a8e11d3e707
