@@ -42,11 +42,15 @@ export default function SignupPage() {
 
     try {
       setIsSendingOtp(true)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
       const response = await fetch(`${apiBase}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email.trim().toLowerCase() }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       const data = await response.json()
       if (!response.ok) {
         toast.error(data.error || 'Failed to send OTP')
@@ -56,7 +60,11 @@ export default function SignupPage() {
       setOtpSent(true)
       toast.success(data.devOtp ? `OTP (dev): ${data.devOtp}` : 'OTP sent to your email!')
     } catch (error) {
-      toast.error('Unable to send OTP. Check backend setup.')
+      if (error?.name === 'AbortError') {
+        toast.error('OTP request timed out. Check API URL/back-end status.')
+      } else {
+        toast.error('Unable to send OTP. Check backend setup.')
+      }
     } finally {
       setIsSendingOtp(false)
     }
