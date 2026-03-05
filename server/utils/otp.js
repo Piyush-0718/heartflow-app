@@ -28,6 +28,15 @@ function getMailTransporter() {
   return null;
 }
 
+async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 12000) {
+  return Promise.race([
+    transporter.sendMail(mailOptions),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`SMTP timeout after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
+
 // Send OTP via email
 const sendOTP = async (email) => {
   try {
@@ -47,7 +56,7 @@ const sendOTP = async (email) => {
       if (!transporter || !process.env.EMAIL_FROM) {
         throw new Error('Email SMTP is not configured for production OTP delivery');
       }
-      await transporter.sendMail({
+      await sendMailWithTimeout(transporter, {
         from: process.env.EMAIL_FROM,
         to: normalizedEmail,
         subject: 'HeartConnect Email Verification OTP',
@@ -59,7 +68,7 @@ const sendOTP = async (email) => {
     // Development mode: try email if configured; fallback to dev OTP if send fails.
     if (transporter && process.env.EMAIL_FROM) {
       try {
-        await transporter.sendMail({
+        await sendMailWithTimeout(transporter, {
           from: process.env.EMAIL_FROM,
           to: normalizedEmail,
           subject: 'HeartConnect Email Verification OTP',
